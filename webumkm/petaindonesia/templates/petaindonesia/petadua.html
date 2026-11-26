@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Peta Jabodetabek</title>
+
+    <link rel="stylesheet" 
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            background-color: #004b76;
+            color: white;
+            padding: 15px 25px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #map {
+            width: 100%;
+            height: calc(100vh - 58px);
+        }
+
+        .city-panel {
+            position: absolute;
+            top: 135px;
+            right: 15px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px #00000040;
+            width: 160px;
+        }
+
+        .city-panel h3 {
+            margin: 0 0 10px;
+        }
+
+        .city-panel button {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #f2f3f5;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: left;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .city-panel button:hover {
+            background: #004b76;
+            color: white;
+        }
+
+        .city-label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        Peta Jabodetabek: Jakarta, Bogor, Depok, Tangerang, Bekasi
+    </header>
+
+    <div id="map"></div>
+
+    <div class="city-panel">
+        <h3>Pilih kota</h3>
+
+        <button onclick="fokusKota('Jakarta')">Jakarta</button>
+        <button onclick="fokusKota('Bogor')">Bogor</button>
+        <button onclick="fokusKota('Depok')">Depok</button>
+        <button onclick="fokusKota('Tangerang')">Tangerang</button>
+        <button onclick="fokusKota('Bekasi')">Bekasi</button>
+        <button onclick="tampilkanSemua()">Tampilkan semua</button>
+    </div>
+
+    <script>
+        // Inisialisasi peta
+        var map = L.map('map').setView([-6.35, 106.85], 10);
+
+        // Basemap OpenStreetMap
+        var osm = L.tileLayer(
+            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }
+        ).addTo(map);
+
+        // Basemap citra satelit
+        var satellite = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            {
+                attribution: 'Tiles &copy; Esri'
+            }
+        );
+
+        // Koordinat setiap kota
+        var kota = {
+            Jakarta: [-6.2088, 106.8456],
+            Bogor: [-6.5971, 106.8060],
+            Depok: [-6.4025, 106.7942],
+            Tangerang: [-6.1783, 106.6319],
+            Bekasi: [-6.2383, 106.9756]
+        };
+
+        var markers = {};
+
+        // Menambahkan marker dan label kota
+        for (var nama in kota) {
+            markers[nama] = L.marker(kota[nama])
+                .addTo(map)
+                .bindPopup("<b>Kota " + nama + "</b>")
+                .bindTooltip(nama, {
+                    permanent: true,
+                    direction: 'right',
+                    offset: [12, -15],
+                    className: 'city-label'
+                });
+        }
+
+        // Fokus pada kota yang dipilih
+        function fokusKota(nama) {
+            map.flyTo(kota[nama], 13, {
+                duration: 1.5
+            });
+
+            markers[nama].openPopup();
+        }
+
+        // Menampilkan seluruh kota
+        function tampilkanSemua() {
+            map.closePopup();
+
+            var bounds = L.latLngBounds(Object.values(kota));
+
+            map.fitBounds(bounds, {
+                paddingTopLeft: [50, 50],
+                paddingBottomRight: [210, 50]
+            });
+        }
+
+        // Kontrol pilihan basemap
+        L.control.layers({
+            "OpenStreetMap": osm,
+            "Satelit": satellite
+        }).addTo(map);
+
+        // Menambahkan skala peta
+        L.control.scale({
+            metric: true,
+            imperial: false
+        }).addTo(map);
+
+        tampilkanSemua();
+    </script>
+
+</body>
+</html>
