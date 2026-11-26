@@ -1,0 +1,335 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>15 Gempa Terkini (M 5.0+)</title>
+
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            background: #124d75;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        header p {
+            margin: 5px 0 0;
+            font-size: 13px;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: white;
+        }
+
+        button:hover {
+            background: #dddddd;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 77px);
+        }
+
+        #sidebar {
+            width: 320px;
+            overflow-y: auto;
+            background: #ffffff;
+            border-right: 1px solid #ccc;
+        }
+
+        #map {
+            flex: 1;
+        }
+
+        .gempa-item {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+
+        .gempa-item:hover {
+            background: #eaf4ff;
+        }
+
+        .magnitude {
+            display: inline-block;
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .detail {
+            color: #555;
+            font-size: 12px;
+            margin-top: 7px;
+        }
+
+        .legend {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 5px #999;
+            line-height: 23px;
+        }
+
+        .legend i {
+            display: inline-block;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div>
+            <h2>15 Gempa Terkini (M 5.0+)</h2>
+            <p id="update">Memuat data gempa BMKG...</p>
+        </div>
+
+        <button onclick="loadGempa()">Muat ulang</button>
+    </header>
+
+    <div class="container">
+        <div id="sidebar"></div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        // Inisialisasi peta Indonesia
+        const map = L.map('map').setView([-2.5, 118], 5);
+
+        // Basemap OpenStreetMap
+        const osm = L.tileLayer(
+            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            {
+                attribution: '&copy; OpenStreetMap contributors | Data gempa: BMKG',
+                maxZoom: 19
+            }
+        ).addTo(map);
+
+        // Basemap satelit
+        const satellite = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            {
+                attribution: 'Tiles &copy; Esri | Data gempa: BMKG'
+            }
+        );
+
+        L.control.layers({
+            "OpenStreetMap": osm,
+            "Satelit": satellite
+        }).addTo(map);
+
+        // Skala peta
+        L.control.scale({
+            imperial: false
+        }).addTo(map);
+
+        // Layer marker gempa
+        const gempaLayer = L.layerGroup().addTo(map);
+
+        // Warna berdasarkan kedalaman gempa
+        function warnaKedalaman(kedalaman) {
+            if (kedalaman < 70) {
+                return '#e53935';
+            } else if (kedalaman <= 300) {
+                return '#ff9800';
+            } else {
+                return '#2eaf62';
+            }
+        }
+
+        // Warna berdasarkan magnitudo
+        function warnaMagnitudo(magnitude) {
+            if (magnitude >= 7) {
+                return '#ff9800';
+            } else if (magnitude >= 6) {
+                return '#e53935';
+            } else {
+                return '#2eaf62';
+            }
+        }
+
+        // Mengambil data gempa dari API BMKG
+        async function loadGempa() {
+
+            const sidebar = document.getElementById('sidebar');
+            const update = document.getElementById('update');
+
+            update.textContent = 'Memuat data gempa BMKG...';
+
+            try {
+                const response = await fetch(
+                    'https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json',
+                    { cache: 'no-store' }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Gagal mengambil data BMKG');
+                }
+
+                const data = await response.json();
+
+                const daftarGempa =
+                    data.Infogempa.gempa.slice(0, 15);
+
+                gempaLayer.clearLayers();
+                sidebar.innerHTML = '';
+
+                const bounds = [];
+
+                daftarGempa.forEach((gempa, index) => {
+
+                    // Mengambil koordinat gempa
+                    const koordinat = gempa.Coordinates
+                        .split(',')
+                        .map(Number);
+
+                    const lat = koordinat[0];
+                    const lng = koordinat[1];
+
+                    const magnitude = parseFloat(gempa.Magnitude);
+                    const kedalaman = parseFloat(gempa.Kedalaman);
+
+                    // Membuat marker lingkaran
+                    const marker = L.circleMarker([lat, lng], {
+                        radius: magnitude * 1.8,
+                        color: '#555',
+                        weight: 1,
+                        fillColor: warnaKedalaman(kedalaman),
+                        fillOpacity: 0.85
+                    }).addTo(gempaLayer);
+
+                    bounds.push([lat, lng]);
+
+                    // Popup informasi gempa
+                    marker.bindPopup(`
+                        <b>${gempa.Wilayah}</b><br><br>
+                        Tanggal: ${gempa.Tanggal}<br>
+                        Waktu: ${gempa.Jam}<br>
+                        Magnitudo: ${gempa.Magnitude}<br>
+                        Kedalaman: ${gempa.Kedalaman}<br>
+                        Lintang: ${gempa.Lintang}<br>
+                        Bujur: ${gempa.Bujur}<br>
+                        Potensi: ${gempa.Potensi}
+                    `);
+
+                    // Daftar gempa pada sidebar
+                    const item = document.createElement('div');
+
+                    item.className = 'gempa-item';
+
+                    item.innerHTML = `
+                        <span class="magnitude"
+                            style="background:${warnaMagnitudo(magnitude)}">
+                            ${gempa.Magnitude}
+                        </span>
+
+                        <b>${gempa.Wilayah}</b>
+
+                        <div class="detail">
+                            ${index + 1}.
+                            ${gempa.Tanggal}
+                            ${gempa.Jam} -
+                            ${gempa.Kedalaman}
+                        </div>
+                    `;
+
+                    // Fokus peta ketika daftar gempa diklik
+                    item.onclick = function () {
+                        map.flyTo([lat, lng], 8);
+                        marker.openPopup();
+                    };
+
+                    sidebar.appendChild(item);
+                });
+
+                if (bounds.length > 0) {
+                    map.fitBounds(bounds, {
+                        padding: [40, 40],
+                        maxZoom: 6
+                    });
+                }
+
+                update.textContent =
+                    daftarGempa.length + ' gempa M 5.0+ terakhir - diperbarui ' +
+                    new Date().toLocaleTimeString('id-ID');
+
+            } catch (error) {
+                update.textContent = 'Gagal memuat data BMKG';
+                sidebar.textContent =
+                    'Data tidak dapat dimuat. Silakan coba kembali.';
+
+                console.error(error);
+            }
+        }
+
+        // Legenda kedalaman gempa
+        const legend = L.control({
+            position: 'bottomright'
+        });
+
+        legend.onAdd = function () {
+
+            const div = L.DomUtil.create('div', 'legend');
+
+            div.innerHTML = `
+                <b>Kedalaman</b><br>
+
+                <i style="background:#e53935"></i>
+                Dangkal (&lt; 70 km)<br>
+
+                <i style="background:#ff9800"></i>
+                Menengah (70–300 km)<br>
+
+                <i style="background:#2eaf62"></i>
+                Dalam (&gt; 300 km)<br>
+
+                <small>Ukuran lingkaran = magnitudo</small>
+            `;
+
+            return div;
+        };
+
+        legend.addTo(map);
+
+        // Memuat data saat halaman dibuka
+        loadGempa();
+    </script>
+
+</body>
+</html>
